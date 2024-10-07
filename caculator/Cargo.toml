@@ -1,0 +1,6 @@
+[package]
+name = "caculator"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
