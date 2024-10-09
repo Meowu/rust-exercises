@@ -1,0 +1,11 @@
+The quick brown fox jumps over the lazy dog.
+This is a test file for the text analyzer program.
+The program should count word frequencies and output the most common words.
+Words like "the" and "a" are likely to be among the most frequent.
+However, other words in this text might also appear frequently.
+The text analyzer should handle punctuation and capitalization properly.
+It's important to note that words like "it's" and "analyzer" are different.
+The quick brown fox jumps again, because foxes love jumping.
+This repetition of phrases will help test the frequency counting.
+In the end, the text analyzer should provide accurate word statistics.
+Remember, the goal is to find the most common words in the given text.

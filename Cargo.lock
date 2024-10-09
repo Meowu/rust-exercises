@@ -9,3 +9,7 @@ version = "0.1.0"
 [[package]]
 name = "task-manager"
 version = "0.1.0"
+
+[[package]]
+name = "word-counter"
+version = "0.1.0"
