@@ -21,6 +21,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut word_counts: HashMap<String, u32> = HashMap::new();
 
     for line in reader.lines() {
+        // 每个迭代项都是 `Result`
         let line = line?;
         for word in line.split_whitespace() {
             let word = word.to_lowercase();
