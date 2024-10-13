@@ -65,7 +65,7 @@ struct AdvancedLibrary<T> {
     books: HashMap<String, T>,
 }
 
-// 约束 AdvancedLibrary 的泛型参数 T 需要实现 Clone
+// 约束 AdvancedLibrary 的泛型参数 T 要求其实现 Clone
 impl<T: Clone> AdvancedLibrary<T> {
     fn new() -> Self {
         AdvancedLibrary {
@@ -79,7 +79,6 @@ impl Library<Book> for AdvancedLibrary<Book> {
         if self.books.contains_key(&book.title) {
             Err(LibraryError::DuplicateBook)
         } else {
-            // `HashMap` 需要拥有其键的所有权。对 title 进行 clone 避免所有权从 Book 转移到 HashMap 。
             self.books.insert(book.title.clone(), book);
             Ok(())
         }
@@ -106,7 +105,6 @@ fn main() {
 
     let mut library = AdvancedLibrary::new();
 
-    // 添加书籍
     let books = vec![
         Book::new(
             "The Rust Programming Language",
