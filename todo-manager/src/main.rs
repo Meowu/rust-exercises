@@ -65,11 +65,17 @@ impl TaskManager {
 
     fn list_tasks(&self) {
         for task in &self.tasks {
+            let description = if task.completed {
+                // shared borrow occurs here.
+                text_to_strikethrough(&task.description)
+            } else {
+                task.description.clone()
+            };
             println!(
-                "{}. [{}] {} (Created: {})",
+                "{:>3}. [{}] {} (Created: {})",
                 task.id,
                 if task.completed { "x" } else { " " },
-                task.description,
+                description,
                 task.created_at.format("%y-%m-%d %H:%M:%S")
             )
         }
@@ -80,6 +86,16 @@ impl TaskManager {
         println!("Task {} deleted.", id);
     }
 }
+
+// be sure to prepend `\x1b` to [0m to reset the strikethrough style.
+fn text_to_strikethrough(text: &str) -> String {
+    format!("\x1b[9m{}\x1b[0m", text)
+}
+
+// works in webpage or editor.
+// fn text_to_strikethrough(text: &str) -> String {
+//     text.chars().map(|c| format!("{}\u{0336}", c)).collect()
+// }
 
 fn load_tasks(path_str: &str) -> TaskManager {
     let path = Path::new(path_str);
