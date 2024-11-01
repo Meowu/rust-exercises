@@ -1,6 +1,7 @@
 use chrono::{DateTime, Utc};
 use clap::{Parser, Subcommand};
 use serde::{Deserialize, Serialize};
+use std::env;
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Write};
 use std::path::Path;
@@ -127,9 +128,14 @@ fn save_tasks(manager: &TaskManager, path_str: &str) {
 
 fn main() {
     println!("Welcome to TODO manager!");
-    const FILE_PATH: &str = "tasks.json";
+    // CARGO_MANIFEST_DIR 是包的根目录
+    let manifest_dir = env!("CARGO_MANIFEST_DIR");
+    // 构建任务文件在源代码目录下的路径
+    let file_path = Path::new(manifest_dir).join("src").join("tasks.json");
+    println!("current dir: {:}", file_path.to_str().unwrap());
+    let path_str = file_path.to_str().unwrap();
     let cli = Cli::parse();
-    let mut manager = load_tasks(FILE_PATH);
+    let mut manager = load_tasks(path_str);
 
     match &cli.command {
         Some(Commands::Add { description }) => {
@@ -148,5 +154,5 @@ fn main() {
             println!("No command specified. Use --help for usage infomation.")
         }
     }
-    save_tasks(&manager, FILE_PATH);
+    save_tasks(&manager, path_str);
 }
