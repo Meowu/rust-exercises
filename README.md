@@ -9,6 +9,12 @@ This repository contains multiple Rust projects for learning and practice.
 3. word-counter - [A word counter that outputs top_n words.]
 4. library - [A library management system.]
 
+## Create new project
+
+```bash
+cargo new project-name
+```
+
 ## Running Projects
 
 To run a specific project:
@@ -20,5 +26,5 @@ cargo run -p project_name
 For example:
 
 ```
-cargo run -p project1
+cargo run -p caculator
 ```
