@@ -50,7 +50,7 @@ impl TaskManager {
                 "Task {}: {} {}",
                 task.id,
                 task.description,
-                if task.completed { "✅" } else { "❌" }
+                if task.completed { "✔" } else { "✘" }
             );
         }
     }
