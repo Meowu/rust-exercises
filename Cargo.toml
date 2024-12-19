@@ -1,5 +1,5 @@
 [workspace]
-members = [ "caculator", "library","task-manager", "todo-manager", "word-counter"]
+members = [ "caculator", "json-rpc", "library","task-manager", "terminal", "todo-manager", "word-counter"]
 
 [workspace.package]
 version = "0.1.0"

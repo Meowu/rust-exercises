@@ -1,11 +1,21 @@
 use chrono::{DateTime, Utc};
 use clap::{Parser, Subcommand};
+use crossterm::{
+    cursor,
+    event::{read, Event, KeyCode, KeyEvent},
+    execute, queue,
+    terminal::{self, disable_raw_mode, enable_raw_mode, ClearType},
+};
 use serde::{Deserialize, Serialize};
 use std::env;
 use std::fs::{File, OpenOptions};
-use std::io::{Read, Write};
+use std::io::{stdin, stdout, Read, Write};
 use std::path::Path;
+use std::process::Command;
 // use structopt::StructOpt;
+use termion::event::Key;
+use termion::input::TermRead;
+use termion::raw::IntoRawMode;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Task {
@@ -82,6 +92,202 @@ impl TaskManager {
         }
     }
 
+    fn enable_raw_mode() {
+        if cfg!(unix) {
+            Command::new("stty")
+                .arg("raw")
+                .arg("-echo")
+                .spawn()
+                .expect("Failed to enable raw mode");
+        }
+    }
+
+    fn disable_raw_mode() {
+        if cfg!(unix) {
+            Command::new("stty")
+                .arg("-raw")
+                .arg("echo")
+                .spawn()
+                .expect("Failed to disable raw mode");
+        }
+    }
+
+    fn interactive_list(&mut self) -> std::io::Result<()> {
+        let stdin = std::io::stdin();
+        let stdout = std::io::stdout().into_raw_mode()?;
+        let mut selected = 0;
+
+        for key in stdin.keys() {
+            print!("{}", termion::clear::All);
+            print!("{}", termion::cursor::Goto(1, 1));
+
+            // 显示任务列表
+            for (index, task) in self.tasks.iter().enumerate() {
+                if index == selected {
+                    print!("> "); // 高亮当前选中项
+                } else {
+                    print!("  ");
+                }
+
+                println!(
+                    "[{}] {}",
+                    if task.completed { "x" } else { " " },
+                    task.description
+                );
+            }
+
+            match key? {
+                Key::Char('q') => break,
+                Key::Char(' ') => {
+                    if let Some(task) = self.tasks.get_mut(selected) {
+                        task.completed = !task.completed;
+                    }
+                }
+                Key::Up if selected > 0 => selected -= 1,
+                Key::Down if selected < self.tasks.len() - 1 => selected += 1,
+                _ => {}
+            }
+        }
+        Ok(())
+    }
+
+    // 主要使用的 ANSI 转义序列：
+    // - `\x1B[2J\x1B[1;1H`: 清屏并移动光标到左上角
+    // - `\x1B[7m`: 反转颜色
+    // - `\x1B[0m`: 重置样式
+    // - `\x1B[s`: 保存光标位置
+    // - `\x1B[u`: 恢复光标位置
+    // - `\x1B[{n};1H`: 移动光标到指定行
+    fn interactive_list_raw(&mut self) -> std::io::Result<()> {
+        if self.tasks.is_empty() {
+            println!("No tasks.");
+            return Ok(());
+        }
+        Self::enable_raw_mode();
+        let mut selected = 0;
+        let mut input = ' ';
+        let mut stdout = stdout();
+        let mut stdin = stdin();
+
+        loop {
+            // 清屏
+            // print!("\x1B[2J\x1B[1;1H");
+            // 清屏
+            print!("\x1B[2J");
+            // 移动光标到开始位置
+            print!("\x1B[H");
+            stdout.flush()?;
+
+            // 显示任务
+            for (index, task) in self.tasks.iter().enumerate() {
+                // if index == selected {
+                //     // 保存光标位置
+                //     print!("\x1B[s");
+                //     // 启用鼠标跟踪
+                //     print!("\x1B[?1000h");
+                //     // 反转颜色
+                //     print!("\x1B[7m");
+                // }
+
+                let description = if task.completed {
+                    // shared borrow occurs here.
+                    text_to_strikethrough(&task.description)
+                } else {
+                    task.description.clone()
+                };
+                let line = format!(
+                    "{:>3}. [{}] {} (Created: {})",
+                    task.id,
+                    if task.completed { "x" } else { " " },
+                    description,
+                    task.created_at.format("%y-%m-%d %H:%M:%S")
+                );
+
+                // println!(
+                //     "[{}] {}",
+                //     if task.completed { "x" } else { " " },
+                //     task.description
+                // );
+
+                // if index == selected {
+                //     // 重置样式
+                //     print!("\x1B[0m");
+                //     // 恢复光标位置
+                //     print!("\x1B[u");
+                // }
+                if index == selected {
+                    // 高亮显示选中行
+                    print!("\x1B[7m{}\x1B[0m\n", line);
+                } else {
+                    print!("{}\n", line);
+                }
+            }
+
+            println!("\nUse ↑↓ to navigate, Space to toggle, q to quit");
+            // println!("last input: {}", input);
+            stdout.flush()?;
+
+            // 将光标移动到选中行
+            print!("\x1B[{};1H", selected + 2);
+            stdout.flush()?;
+
+            // 读取按键
+            let mut buffer = [0; 3];
+            stdin.read_exact(&mut buffer[..1])?;
+
+            match buffer[0] {
+                b'q' => {
+                    // 禁用鼠标跟踪
+                    print!("\x1B[?1000l");
+                    stdout.flush()?;
+                    break;
+                }
+                b' ' => {
+                    input = ' ';
+                    if let Some(task) = self.tasks.get_mut(selected) {
+                        task.completed = !task.completed;
+                    }
+                }
+                b'k' => {
+                    input = 'k';
+                    if selected > 0 {
+                        selected -= 1
+                    }
+                }
+                b'j' => {
+                    input = 'j';
+                    if selected < self.tasks.len() - 1 {
+                        selected += 1
+                    }
+                }
+                27 => {
+                    input = '7';
+                    // ESC 键，可能是方向键的开始
+                    println!("read extact.");
+                    stdin.read_exact(&mut buffer[1..3])?;
+                    match &buffer[..] {
+                        [27, 91, 65] => {
+                            // 上箭头
+                            if selected > 0 {
+                                selected -= 1;
+                            }
+                        }
+                        [27, 91, 66] => {
+                            // 下箭头
+                            if selected < self.tasks.len() - 1 {
+                                selected += 1;
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+                _ => {}
+            }
+        }
+        Self::disable_raw_mode();
+        Ok(())
+    }
+
     fn delete_task(&mut self, id: usize) {
         self.tasks.retain(|t| t.id != id);
         println!("Task {} deleted.", id);
@@ -145,7 +351,10 @@ fn main() {
             manager.complete_task(*id);
         }
         Some(Commands::List) => {
-            manager.list_tasks();
+            // manager.list_tasks();
+            manager
+                .interactive_list_raw()
+                .expect("Failed to show interactive list");
         }
         Some(Commands::Delete { id }) => {
             manager.delete_task(*id);
